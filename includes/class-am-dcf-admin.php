@@ -12,6 +12,35 @@ class AM_DCF_Admin {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'handle_db_repair'));
+        add_action('admin_init', array($this, 'register_settings'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+    }
+
+    /**
+     * Enqueue admin scripts for media uploader
+     */
+    public function enqueue_admin_scripts($hook) {
+        if (strpos($hook, 'am-dcf-submissions') === false) {
+            return;
+        }
+        wp_enqueue_media();
+        wp_enqueue_script('am-dcf-admin', AM_DCF_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), AM_DCF_VERSION, true);
+    }
+
+    /**
+     * Register plugin settings
+     */
+    public function register_settings() {
+        register_setting('am_dcf_settings', 'am_dcf_recipient_email', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_email',
+            'default' => get_option('admin_email')
+        ));
+
+        register_setting('am_dcf_settings', 'am_dcf_spare_parts_file', array(
+            'type' => 'string',
+            'sanitize_callback' => 'esc_url_raw'
+        ));
     }
 
     /**
@@ -44,14 +73,64 @@ class AM_DCF_Admin {
      * Display submissions page
      */
     public function display_submissions_page() {
-        // Get submission ID if viewing single submission
-        $submission_id = isset($_GET['submission']) ? intval($_GET['submission']) : 0;
-        
-        if ($submission_id) {
-            $this->display_single_submission($submission_id);
-        } else {
-            $this->display_submissions_list();
-        }
+        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'submissions';
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html__('Defect Reports (STORM)', 'am-dealer-contact-form'); ?></h1>
+            
+            <h2 class="nav-tab-wrapper">
+                <a href="?page=am-dcf-submissions&tab=submissions" class="nav-tab <?php echo $active_tab == 'submissions' ? 'nav-tab-active' : ''; ?>"><?php echo esc_html__('Submissions', 'am-dealer-contact-form'); ?></a>
+                <a href="?page=am-dcf-submissions&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>"><?php echo esc_html__('Settings', 'am-dealer-contact-form'); ?></a>
+            </h2>
+
+            <?php
+            if ($active_tab == 'settings') {
+                $this->display_settings_page();
+            } else {
+                // Get submission ID if viewing single submission
+                $submission_id = isset($_GET['submission']) ? intval($_GET['submission']) : 0;
+                
+                if ($submission_id) {
+                    $this->display_single_submission($submission_id);
+                } else {
+                    $this->display_submissions_list();
+                }
+            }
+            ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Display settings page content
+     */
+    private function display_settings_page() {
+        ?>
+        <form method="post" action="options.php" style="margin-top: 20px;">
+            <?php
+            settings_fields('am_dcf_settings');
+            do_settings_sections('am_dcf_settings');
+            ?>
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row"><?php echo esc_html__('Recipient Email Address', 'am-dealer-contact-form'); ?></th>
+                    <td>
+                        <input type="email" name="am_dcf_recipient_email" value="<?php echo esc_attr(get_option('am_dcf_recipient_email', get_option('admin_email'))); ?>" class="regular-text" required />
+                        <p class="description"><?php echo esc_html__('All report submissions will be sent to this email address.', 'am-dealer-contact-form'); ?></p>
+                    </td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><?php echo esc_html__('Spare Parts Excel List', 'am-dealer-contact-form'); ?></th>
+                    <td>
+                        <input type="text" id="am_dcf_spare_parts_file" name="am_dcf_spare_parts_file" value="<?php echo esc_attr(get_option('am_dcf_spare_parts_file')); ?>" class="regular-text" />
+                        <button type="button" class="button am-dcf-upload-button"><?php echo esc_html__('Upload / Select File', 'am-dealer-contact-form'); ?></button>
+                        <p class="description"><?php echo esc_html__('The link on the frontend will point to this file.', 'am-dealer-contact-form'); ?></p>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button(); ?>
+        </form>
+        <?php
     }
     
     /**
@@ -61,7 +140,7 @@ class AM_DCF_Admin {
         $submission = AM_DCF_Database::get_submission($id);
         
         if (!$submission) {
-            echo '<div class="wrap"><p>' . __('Submission not found.', 'am-dealer-contact-form') . '</p></div>';
+            echo '<p>' . __('Submission not found.', 'am-dealer-contact-form') . '</p>';
             return;
         }
         
@@ -69,8 +148,8 @@ class AM_DCF_Admin {
         $files = !empty($submission->files) ? json_decode($submission->files, true) : array();
         
         ?>
-        <div class="wrap">
-            <h1><?php printf(__('Defect Report Details: %s', 'am-dealer-contact-form'), $case_number); ?></h1>
+        <div style="margin-top: 20px;">
+            <h3><?php printf(__('Defect Report Details: %s', 'am-dealer-contact-form'), $case_number); ?></h3>
             <p><a href="<?php echo admin_url('admin.php?page=am-dcf-submissions'); ?>" class="button"><?php echo esc_html__('Back to List', 'am-dealer-contact-form'); ?></a></p>
             
             <table class="form-table">
@@ -188,14 +267,13 @@ class AM_DCF_Admin {
         $total_count = AM_DCF_Database::get_count();
         
         ?>
-        <div class="wrap">
-            <h1>
-                <?php echo esc_html__('Defect Reports', 'am-dealer-contact-form'); ?> 
-                <span class="count">(<?php echo $total_count; ?>)</span>
+        <div style="margin-top: 20px;">
+            <p>
+                <?php printf(__('Total Submissions: %d', 'am-dealer-contact-form'), $total_count); ?>
                 <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=am-dcf-submissions&repair_db=1'), 'am_dcf_repair_db'); ?>" class="button button-secondary" style="margin-left: 20px;">
                     <?php echo esc_html__('Repair Database Table', 'am-dealer-contact-form'); ?>
                 </a>
-            </h1>
+            </p>
 
             <?php if (isset($_GET['repaired'])): ?>
                 <div class="updated notice is-dismissible"><p><?php echo esc_html__('Database table repaired successfully.', 'am-dealer-contact-form'); ?></p></div>

@@ -3,7 +3,7 @@
  * Plugin Name: AM Dealer Contact Form
  * Plugin URI: https://example.com/am-dealer-contact-form
  * Description: A contact form for dealers to submit defect reports (STORM)
- * Version: 1.0.5
+ * Version: 1.0.7
  * Author: Your Name
  * Author URI: https://example.com
  * License: GPL v2 or later
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('AM_DCF_VERSION', '1.0.5');
+define('AM_DCF_VERSION', '1.0.7');
 define('AM_DCF_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AM_DCF_PLUGIN_URL', plugin_dir_url(__FILE__));
 

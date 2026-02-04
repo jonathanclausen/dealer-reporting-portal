@@ -88,9 +88,24 @@ $sum = $num1 + $num2;
                 placeholder="<?php echo esc_attr__('Spare part nr. request (check the spare part list)', 'am-dealer-contact-form'); ?>"
             />
             <small class="am-dcf-help-text">
-                <a href="https://amrobots-my.sharepoint.com/:x:/r/personal/ff_am-robots_com/_layouts/15/Doc.aspx?sourcedoc=%7B60A15A23-FF6E-49F3-BB15-76255B0C329D%7D&file=STORM%20-%20spare%20parts%20with%20repair%20time.xlsx&action=default&mobileredirect=true" target="_blank" rel="noopener noreferrer">
-                    <?php echo esc_html__('View spare part list', 'am-dealer-contact-form'); ?>
-                </a>
+                <?php 
+                if (is_user_logged_in()): 
+                    $spare_parts_url = get_option('am_dcf_spare_parts_file');
+                    if ($spare_parts_url): 
+                    ?>
+                        <a href="<?php echo esc_url($spare_parts_url); ?>" download>
+                            <?php echo esc_html__('Download spare part list', 'am-dealer-contact-form'); ?>
+                        </a>
+                    <?php else: ?>
+                        <a href="https://amrobots-my.sharepoint.com/:x:/r/personal/ff_am-robots_com/_layouts/15/Doc.aspx?sourcedoc=%7B60A15A23-FF6E-49F3-BB15-76255B0C329D%7D&file=STORM%20-%20spare%20parts%20with%20repair%20time.xlsx&action=default&mobileredirect=true" target="_blank" rel="noopener noreferrer">
+                            <?php echo esc_html__('View spare part list', 'am-dealer-contact-form'); ?>
+                        </a>
+                    <?php 
+                    endif;
+                else:
+                    echo esc_html__('(Log in to access spare part list)', 'am-dealer-contact-form');
+                endif; 
+                ?>
             </small>
         </div>
         

@@ -253,7 +253,7 @@ class AM_DCF_Form_Handler {
      * Send notification email
      */
     private function send_notification_email($data, $submission_id, $case_number) {
-        $to = get_option('admin_email');
+        $to = get_option('am_dcf_recipient_email', get_option('admin_email'));
         $subject = sprintf(__('New Defect Report [%s] - %s', 'am-dealer-contact-form'), $case_number, $data['dealer_name']);
         
         $view_url = admin_url('admin.php?page=am-dcf-submissions&submission=' . $submission_id);
