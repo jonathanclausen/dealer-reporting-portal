@@ -53,8 +53,7 @@ $sum = $num1 + $num2;
                 id="serial_number" 
                 name="serial_number" 
                 class="am-dcf-input" 
-                maxlength="19"
-                placeholder="<?php echo esc_attr__('Serial Number (starts with HKX)', 'am-dealer-contact-form'); ?> *"
+                placeholder="<?php echo esc_attr__('Serial Number', 'am-dealer-contact-form'); ?> *"
                 required
             />
             <span class="am-dcf-error" id="error_serial_number"></span>
@@ -63,9 +62,10 @@ $sum = $num1 + $num2;
         <div class="am-dcf-field-group">
             <div class="am-dcf-date-time-row">
                 <input type="date" id="incident_date" name="incident_date" class="am-dcf-input" required />
-                <input type="text" id="incident_time" name="incident_time" class="am-dcf-input" placeholder="14:30 (24h)" pattern="^([01]\d|2[0-3]):([0-5]\d)$" maxlength="5" required />
+                <input type="text" id="incident_time" name="incident_time" class="am-dcf-input" placeholder="14:30 (24h) *" pattern="^([01]\d|2[0-3]):([0-5]\d)$" maxlength="5" required />
             </div>
             <span class="am-dcf-error" id="error_incident_date"></span>
+            <span class="am-dcf-error" id="error_incident_time"></span>
         </div>
         
         <div class="am-dcf-field-group">

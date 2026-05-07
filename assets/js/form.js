@@ -4,29 +4,13 @@ jQuery(document).ready(function($) {
     const form = $('#am-dcf-form');
     const submitButton = form.find('.am-dcf-submit-button');
     const messageDiv = $('#am-dcf-message');
-    
-    // Serial number validation - auto-format to HKX + 16 digits
-    $('#serial_number').on('input', function() {
-        let value = $(this).val().replace(/[^0-9HKX]/g, '').toUpperCase();
-        
-        // Ensure it starts with HKX
-        if (value.length > 0 && !value.startsWith('HKX')) {
-            if (value.startsWith('HK')) {
-                value = 'HKX' + value.substring(2);
-            } else if (value.startsWith('H')) {
-                value = 'HKX' + value.substring(1);
-            } else {
-                value = 'HKX' + value;
-            }
-        }
-        
-        // Limit to 19 characters (HKX + 16 digits)
-        if (value.length > 19) {
-            value = value.substring(0, 19);
-        }
-        
-        $(this).val(value);
-    });
+    const originalSubmitText = submitButton.text();
+    let isSubmitting = false;
+
+    function unlockSubmitButton() {
+        isSubmitting = false;
+        submitButton.prop('disabled', false).text(originalSubmitText);
+    }
     
     // File input change handler
     $('#files').on('change', function() {
@@ -100,62 +84,85 @@ jQuery(document).ready(function($) {
             return;
         }
 
+        // Prevent double-submits and avoid "stuck disabled button" states.
+        if (isSubmitting) return;
+        isSubmitting = true;
         submitButton.prop('disabled', true).text('Submitting...');
-        
-        // Validate serial number format
-        const serialNumber = $('#serial_number').val();
-        if (!/^HKX\d{16}$/.test(serialNumber)) {
-            displayErrors({
-                serial_number: 'Serial number must be 19 digits and start with HKX'
-            });
-            submitButton.prop('disabled', false).text('Submit Defect Report');
-            return;
-        }
-        
-        // Create FormData
-        const formData = new FormData(this);
-        formData.append('action', 'am_dcf_submit_form');
-        formData.append('nonce', amDcfAjax.nonce);
-        
-        // Submit via AJAX
-        $.ajax({
-            url: amDcfAjax.ajaxurl,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                if (response.success) {
-                    messageDiv.addClass('success').html(response.data.message);
-                    form[0].reset();
-                    $('#file-list').empty();
-                    
-                    // Scroll to message
-                    $('html, body').animate({
-                        scrollTop: messageDiv.offset().top - 100
-                    }, 500);
-                } else {
-                    if (response.data.errors) {
-                        displayErrors(response.data.errors);
+
+        try {
+            // Create FormData
+            const formData = new FormData(this);
+            formData.append('action', 'am_dcf_submit_form');
+            formData.append('nonce', amDcfAjax.nonce);
+
+            // Submit via AJAX
+            $.ajax({
+                url: amDcfAjax.ajaxurl,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        messageDiv.addClass('success').html(response.data.message);
+                        // Inject case number after rendering and keep only the number non-translatable.
+                        let caseNumber = (response.data && response.data.case_number) ? String(response.data.case_number) : '';
+                        if (!caseNumber && response.data && response.data.submission_id) {
+                            // Fallback in case translators/plugins strip the case number from response payload.
+                            const generated = Number(response.data.submission_id) + 1000;
+                            if (!Number.isNaN(generated)) {
+                                caseNumber = 'STORM-' + String(generated).padStart(5, '0');
+                            }
+                        }
+
+                        const caseNumberEl = messageDiv.find('.am-dcf-case-number');
+                        if (caseNumberEl.length) {
+                            caseNumberEl.attr('data-wg-notranslate', '').attr('translate', 'no').text(caseNumber);
+                        } else if (caseNumber) {
+                            const caseLabel = (response.data && response.data.case_label) ? String(response.data.case_label) : 'Case number:';
+                            messageDiv.find('.am-dcf-success-text').append(
+                                '<div class="am-dcf-case-box">' + caseLabel + ' <strong class="am-dcf-case-number" data-wg-notranslate translate="no"></strong></div>'
+                            );
+                            messageDiv.find('.am-dcf-case-number').text(caseNumber);
+                        }
+                        form[0].reset();
+                        $('#file-list').empty();
+
+                        // Scroll to message
+                        $('html, body').animate({
+                            scrollTop: messageDiv.offset().top - 100
+                        }, 500);
                     } else {
-                        messageDiv.addClass('error').text(response.data.message || 'An error occurred.');
+                        if (response.data && response.data.errors) {
+                            displayErrors(response.data.errors);
+                        } else {
+                            messageDiv.addClass('error').text((response.data && response.data.message) ? response.data.message : 'An error occurred.');
+                        }
                     }
+                    unlockSubmitButton();
+                },
+                error: function(xhr, status, error) {
+                    let errorMsg = 'An error occurred. Please try again.';
+                    if (xhr.status === 500) {
+                        errorMsg = 'Server Error (500). Please check your error log or contact support.';
+                    } else if (xhr.status === 403) {
+                        errorMsg = 'Security/Session Error (403). Please refresh the page.';
+                    }
+                    messageDiv.addClass('error').text(errorMsg);
+                    console.error('AM DCF AJAX Error:', status, error, xhr.responseText);
+                    unlockSubmitButton();
+                },
+                complete: function() {
+                    // Ensure the button is always unlocked even if callbacks throw.
+                    unlockSubmitButton();
                 }
-            },
-            error: function(xhr, status, error) {
-                let errorMsg = 'An error occurred. Please try again.';
-                if (xhr.status === 500) {
-                    errorMsg = 'Server Error (500). Please check your error log or contact support.';
-                } else if (xhr.status === 403) {
-                    errorMsg = 'Security/Session Error (403). Please refresh the page.';
-                }
-                messageDiv.addClass('error').text(errorMsg);
-                console.error('AM DCF AJAX Error:', status, error, xhr.responseText);
-            },
-            complete: function() {
-                submitButton.prop('disabled', false).text('Submit');
-            }
-        });
+            });
+        } catch (err) {
+            // If anything throws after disabling the button, make sure we re-enable it.
+            console.error('AM DCF Submit exception:', err);
+            messageDiv.addClass('error').text('An unexpected error occurred. Please try again.');
+            unlockSubmitButton();
+        }
     });
 });
 

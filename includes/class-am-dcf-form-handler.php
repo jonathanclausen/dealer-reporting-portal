@@ -70,12 +70,13 @@ class AM_DCF_Form_Handler {
                 $errors['dealer_name'] = __('Dealer name is required.', 'am-dealer-contact-form');
             }
 
-            // Serial number validation (19 digits, starts with HKX)
+            // Serial number (required, stored in VARCHAR(19))
             $serial_number = isset($_POST['serial_number']) ? trim($_POST['serial_number']) : '';
             if (empty($serial_number)) {
                 $errors['serial_number'] = __('Serial number is required.', 'am-dealer-contact-form');
-            } elseif (!preg_match('/^HKX\d{16}$/', $serial_number)) {
-                $errors['serial_number'] = __('Serial number must be 19 digits and start with HKX.', 'am-dealer-contact-form');
+            } else {
+                // Defensive: ensure we don't exceed the DB column size.
+                $serial_number = substr($serial_number, 0, 19);
             }
             
             // Issues description
@@ -139,21 +140,20 @@ class AM_DCF_Form_Handler {
                 
                 error_log('AM DCF: All done');
                 wp_send_json_success(array(
-                    'message' => sprintf(
+                    'message' =>
                         '<div class="am-dcf-success-content">
                             <span class="am-dcf-success-icon">✓</span>
                             <div class="am-dcf-success-text">
                                 <h3>' . __('Thank You!', 'am-dealer-contact-form') . '</h3>
                                 <p>' . __('Your defect report has been submitted successfully.', 'am-dealer-contact-form') . '</p>
                                 <div class="am-dcf-case-box">
-                                    ' . __('Case number:', 'am-dealer-contact-form') . ' <strong>%s</strong>
+                                    ' . __('Case number:', 'am-dealer-contact-form') . ' <strong class="am-dcf-case-number notranslate weglot-ignore" translate="no" data-wg-notranslate></strong>
                                 </div>
                             </div>
-                        </div>', 
-                        $case_number
-                    ),
+                        </div>',
                     'submission_id' => $submission_id,
-                    'case_number' => $case_number
+                    'case_number' => $case_number,
+                    'case_label' => __('Case number:', 'am-dealer-contact-form')
                 ));
             } else {
                 $error_msg = is_wp_error($result) ? __('Database Error: ', 'am-dealer-contact-form') . $result->get_error_message() : __('An error occurred. Please try again.', 'am-dealer-contact-form');
