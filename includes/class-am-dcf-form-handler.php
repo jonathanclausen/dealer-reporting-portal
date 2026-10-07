@@ -70,13 +70,10 @@ class AM_DCF_Form_Handler {
                 $errors['dealer_name'] = __('Dealer name is required.', 'am-dealer-contact-form');
             }
 
-            // Serial number (required, stored in VARCHAR(19))
+            // Serial number (required; stored as text — no fixed max length)
             $serial_number = isset($_POST['serial_number']) ? trim($_POST['serial_number']) : '';
             if (empty($serial_number)) {
                 $errors['serial_number'] = __('Serial number is required.', 'am-dealer-contact-form');
-            } else {
-                // Defensive: ensure we don't exceed the DB column size.
-                $serial_number = substr($serial_number, 0, 19);
             }
             
             // Issues description
@@ -134,9 +131,10 @@ class AM_DCF_Form_Handler {
                 $submission_id = $result;
                 $case_number = AM_DCF_Database::get_case_number($submission_id);
                 
-                // Send email notification
+                // Send email notifications
                 error_log('AM DCF: Sending email');
                 $this->send_notification_email($submission_data, $submission_id, $case_number);
+                $this->send_customer_confirmation_email($submission_data, $case_number);
                 
                 error_log('AM DCF: All done');
                 wp_send_json_success(array(
@@ -289,6 +287,37 @@ class AM_DCF_Form_Handler {
         
         $headers = array('Content-Type: text/html; charset=UTF-8');
         
+        wp_mail($to, $subject, $message, $headers);
+    }
+
+    /**
+     * Send confirmation email to the person who submitted the form
+     */
+    private function send_customer_confirmation_email($data, $case_number) {
+        $to = $data['contact_email'];
+        $subject = sprintf(__('Your support request [%s]', 'am-dealer-contact-form'), $case_number);
+        $case_number_display = esc_html($case_number);
+
+        $message = "
+        <div style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; padding: 20px;'>
+            <p>" . __('Dear Customer,', 'am-dealer-contact-form') . "</p>
+            <p>" . sprintf(
+                __('Thank you for submitting your support request. Your case number is #%s.', 'am-dealer-contact-form'),
+                $case_number_display
+            ) . "</p>
+            <p>" . __('We know your time is valuable, and If we should diagnose your robot fast, then it is important that you remember to:', 'am-dealer-contact-form') . "</p>
+            <ul>
+                <li>" . __('Place the robot in docking station', 'am-dealer-contact-form') . "</li>
+                <li>" . __('Stop all scheduled task', 'am-dealer-contact-form') . "</li>
+                <li>" . __('Make sure it has 4G or Wifi connections', 'am-dealer-contact-form') . "</li>
+            </ul>
+            <p>" . __('Thank you for your cooperation.', 'am-dealer-contact-form') . "</p>
+            <p>" . __('Kind regards,', 'am-dealer-contact-form') . "<br>
+            <strong>STORM – After sales support</strong></p>
+        </div>";
+
+        $headers = array('Content-Type: text/html; charset=UTF-8');
+
         wp_mail($to, $subject, $message, $headers);
     }
 }

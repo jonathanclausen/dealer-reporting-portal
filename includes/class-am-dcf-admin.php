@@ -8,11 +8,13 @@ if (!defined('ABSPATH')) {
 }
 
 class AM_DCF_Admin {
+
+    const CAPABILITY = 'edit_posts';
     
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
-        add_action('admin_init', array($this, 'handle_db_repair'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_filter('option_page_capability_am_dcf_settings', array($this, 'settings_capability'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
     }
 
@@ -44,16 +46,12 @@ class AM_DCF_Admin {
     }
 
     /**
-     * Handle manual DB repair
+     * Allow editors to save plugin settings via options.php
      */
-    public function handle_db_repair() {
-        if (isset($_GET['page']) && $_GET['page'] === 'am-dcf-submissions' && isset($_GET['repair_db']) && check_admin_referer('am_dcf_repair_db')) {
-            AM_DCF_Database::create_table();
-            wp_redirect(admin_url('admin.php?page=am-dcf-submissions&repaired=1'));
-            exit;
-        }
+    public function settings_capability($capability) {
+        return self::CAPABILITY;
     }
-    
+
     /**
      * Add admin menu
      */
@@ -61,7 +59,7 @@ class AM_DCF_Admin {
         add_menu_page(
             __('Defect Reports', 'am-dealer-contact-form'),
             __('Defect Reports', 'am-dealer-contact-form'),
-            'manage_options',
+            self::CAPABILITY,
             'am-dcf-submissions',
             array($this, 'display_submissions_page'),
             'dashicons-email-alt',
@@ -268,16 +266,8 @@ class AM_DCF_Admin {
         
         ?>
         <div style="margin-top: 20px;">
-            <p>
-                <?php printf(__('Total Submissions: %d', 'am-dealer-contact-form'), $total_count); ?>
-                <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=am-dcf-submissions&repair_db=1'), 'am_dcf_repair_db'); ?>" class="button button-secondary" style="margin-left: 20px;">
-                    <?php echo esc_html__('Repair Database Table', 'am-dealer-contact-form'); ?>
-                </a>
-            </p>
+            <p><?php printf(__('Total Submissions: %d', 'am-dealer-contact-form'), $total_count); ?></p>
 
-            <?php if (isset($_GET['repaired'])): ?>
-                <div class="updated notice is-dismissible"><p><?php echo esc_html__('Database table repaired successfully.', 'am-dealer-contact-form'); ?></p></div>
-            <?php endif; ?>
             
             <table class="wp-list-table widefat fixed striped">
                 <thead>

@@ -25,7 +25,7 @@ class AM_DCF_Database {
             contact_email varchar(255) NOT NULL,
             contact_phone varchar(255) NOT NULL,
             dealer_name varchar(255) NOT NULL,
-            serial_number varchar(19) NOT NULL,
+            serial_number text NOT NULL,
             issues_description text NOT NULL,
             incident_date date NOT NULL,
             incident_time time NOT NULL,
@@ -40,6 +40,33 @@ class AM_DCF_Database {
 
         // More aggressive column check
         self::ensure_all_columns_exist();
+
+        self::upgrade_serial_number_column();
+    }
+
+    /**
+     * Widen serial_number from legacy varchar(19) to text (existing installs).
+     */
+    private static function upgrade_serial_number_column() {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'am_dcf_submissions';
+        // Table may not exist on first run before dbDelta completes in edge cases.
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_name)) !== $table_name) {
+            return;
+        }
+
+        $column = $wpdb->get_row("SHOW COLUMNS FROM `$table_name` LIKE 'serial_number'");
+        if (!$column || empty($column->Type)) {
+            return;
+        }
+
+        $type = strtolower($column->Type);
+        if (in_array($type, array('text', 'mediumtext', 'longtext'), true)) {
+            return;
+        }
+
+        $wpdb->query("ALTER TABLE `$table_name` MODIFY `serial_number` text NOT NULL");
     }
 
     /**
@@ -54,7 +81,7 @@ class AM_DCF_Database {
             'contact_email'     => "varchar(255) NOT NULL AFTER contact_name",
             'contact_phone'     => "varchar(255) NOT NULL AFTER contact_email",
             'dealer_name'       => "varchar(255) NOT NULL AFTER contact_phone",
-            'serial_number'     => "varchar(19) NOT NULL AFTER dealer_name",
+            'serial_number'     => "text NOT NULL AFTER dealer_name",
             'issues_description'=> "text NOT NULL AFTER serial_number",
             'incident_date'     => "date NOT NULL AFTER issues_description",
             'incident_time'     => "time NOT NULL AFTER incident_date",
